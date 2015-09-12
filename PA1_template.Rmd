@@ -1,0 +1,107 @@
+# Reproducible Research - Peer Assessment 1
+##Biplab Mazumder
+
+The Assignment is to analyze daily activity Pattern from a personal activity monitoring device.
+
+### Loading and Analysing the Data
+
+```{r echo=T}
+DataSetFname<-"../Dataset/activity.csv"
+df<-read.csv(DataSetFname)
+```
+
+### Calculate Mean Total number of Steps taken per day
+
+First let's calulate the total number of steps per day
+```{R echo = T}
+totalsteps<-tapply(df$steps,df$date,FUN=sum,na.rm=TRUE)
+```
+Then let's plot it in a histogram
+```{R echo=T}
+hist(totalsteps,main="Histogram of Total Steps Per Day")
+legend(x="topright", legend=c("mean","median"), col=c("red","blue"), bty="n")
+```
+
+Second Calculate the mean and median and ofcourse represent it in the earlier hstogram
+```{R echo=T}
+totalsteps.min<-mean(totalsteps)
+totalsteps.median<-median(totalsteps)
+hist(totalsteps,main="Histogram of Total Steps Per Day")
+legend(x="topright", legend=c("mean","median"), col=c("red","blue"), bty="n")
+abline(v=totalsteps.min,col="red")
+abline(v=totalsteps.median,col="blue")
+```
+
+### What is the average daily activity pattern
+
+Making a time series plot of the 5 min interval and the average number of steps taken
+
+```{R}
+df$interval <- 60*floor((df$interval+1)/100) + (df$interval %% 100)
+avg_steps<-tapply(df$steps,df$interval,mean,na.rm=T)
+avgStepsPerHr<-as.numeric(names(avg_steps))/60
+plot(avgStepsPerHr, avg_steps, type="l", axes=F,
+     xlab="time of day (h)", ylab="average number of steps in 5-min interval",
+     main="Daily activity pattern")
+axis(2)
+axis(1, at=0:6*4, labels=paste(0:6*4,":00", sep=""))
+```
+
+Now we will find out which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps.
+
+```{R}
+max_steps <- which(avg_steps==max(avg_steps))
+max_steps_int <- df$interval[max_steps]
+sprintf("%02d:%02d", floor(max_steps_int/60), max_steps_int %% 60)
+```
+
+###Inputing Missing Values
+There are a number of Days/Intervals which have missing values. The task is to find out the number of missing values and a strategy to fill up the missing values
+
+Firstly, Calculate the total number of missing values :
+```{R}
+sum(is.na(df))
+```
+
+Strategy to fill up the missing values: for every missing value, we will take the average number of steps in thet 5 min interval. This procedure will work good, if the person has daily routines
+
+```{R}
+df.filledna <- transform(df, steps=ifelse(is.na(steps), avg_steps, steps))
+```
+
+Now make the the earlier histogram , but with this new filled up dataset.
+
+```{R}
+totalsteps<-tapply(df.filledna$steps,df.filledna$date,FUN=sum,na.rm=TRUE)
+totalsteps.min<-mean(totalsteps)
+totalsteps.median<-median(totalsteps)
+hist(totalsteps,main="Histogram of Total Steps Per Day",xlab="Number of Steps per day")
+abline(v=totalsteps.min,col="red")
+abline(v=totalsteps.median,col="blue",lty=2)
+```
+
+Find the difference on the number of steps between the earlier dataset(ignoring NAs) and the new dataset created by filling up the missing values
+
+```{R}
+sum(df$steps,na.rm=T)
+sum(df.filledna$steps)
+```
+So it seems there is a substantial increase in the number of footsteps between the original dataset and the filled up dataset.
+
+
+###Difference in activity patterns between weeekdays and weekends
+```{R}
+library(plyr)
+df.filledna$weekdays <- weekdays(as.Date(df.filledna$date))
+df.filledna$weekdays <- ifelse(df.filledna$weekdays %in% c("Saturday", "Sunday"),"weekend", "weekday")
+average <- ddply(df.filledna, .(interval, weekdays), summarise, steps=mean(steps))
+```
+Making a panel plot containing a time series plot of the 5 min interval and the average number of steps taken:
+```{R}
+library(lattice)
+xyplot(steps ~ interval | weekdays, data = average, layout = c(1, 2), type="l", xlab = "Interval", ylab = "Number of steps")
+```
+
+
+
+
